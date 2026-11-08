@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NEXUS AI // FORENSICS SUITE</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #030712; color: #e2e8f0; }
@@ -41,7 +41,7 @@
       </div>
       <div class="text-right">
         <p class="text-[10px] text-slate-400 uppercase font-semibold">Daily Quota</p>
-        <p class="text-sm font-black text-white mono"><span id="quota-val">19</span> / 20 Left</p>
+        <p class="text-sm font-black text-white mono"><span id="quota-val">20</span> / 20 Left</p>
       </div>
     </div>
 
@@ -56,7 +56,7 @@
           <p class="text-[10px] text-slate-500 mt-1">JPEG, PNG, WebP supported</p>
         </div>
 
-        <!-- IMAGE PREVIEW -->
+        <!-- IMAGE PREVIEW & REAL DATA -->
         <div id="preview-box" class="hidden space-y-3 pt-2">
           <div class="relative rounded-lg overflow-hidden border border-slate-700">
             <img id="img-elem" class="w-full object-cover max-h-60" src="" alt="Preview">
@@ -65,22 +65,31 @@
             </div>
           </div>
 
-          <div class="bg-[#030712] border border-slate-800 rounded-lg p-3 text-xs space-y-1.5 mono">
-            <div class="flex justify-between text-slate-400">
-              <span>Status:</span>
-              <span class="text-emerald-400 font-bold">Metadata Verified</span>
+          <!-- REAL EXTRACTED INFO TABLE -->
+          <div class="bg-[#030712] border border-slate-800 rounded-lg p-3 text-xs space-y-2 mono">
+            <div class="flex justify-between border-b border-slate-800/80 pb-1.5 text-slate-400">
+              <span>File Name:</span>
+              <span id="res-filename" class="text-cyan-300 font-bold truncate max-w-[180px]">Checking...</span>
             </div>
-            <div class="flex justify-between text-slate-400">
+            <div class="flex justify-between border-b border-slate-800/80 pb-1.5 text-slate-400">
+              <span>Resolution:</span>
+              <span id="res-dimensions" class="text-white font-bold">Reading...</span>
+            </div>
+            <div class="flex justify-between border-b border-slate-800/80 pb-1.5 text-slate-400">
+              <span>File Size:</span>
+              <span id="res-filesize" class="text-white font-bold">Calculating...</span>
+            </div>
+            <div class="flex justify-between border-b border-slate-800/80 pb-1.5 text-slate-400">
               <span>Detected Device:</span>
-              <span class="text-white">Apple iPhone 15 Pro</span>
+              <span id="res-device" class="text-white font-bold">Scanning EXIF...</span>
             </div>
             <div class="flex justify-between text-slate-400">
-              <span>OCR Watermark:</span>
-              <span class="text-cyan-400 font-bold">@tiktok_verified</span>
+              <span>Forensic Status:</span>
+              <span id="res-status" class="text-emerald-400 font-bold">Verified</span>
             </div>
           </div>
 
-          <button onclick="alert('PDF Report Dossier Downloaded successfully!')" class="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-violet-600 font-bold text-black text-xs rounded-lg active:scale-95 transition">
+          <button onclick="downloadReport()" class="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-violet-600 font-bold text-black text-xs rounded-lg active:scale-95 transition">
             Export PDF Dossier
           </button>
         </div>
@@ -145,11 +154,48 @@
       if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-          document.getElementById('img-elem').src = e.target.result;
+          const imgElem = document.getElementById('img-elem');
+          imgElem.src = e.target.result;
+          
+          imgElem.onload = function() {
+            document.getElementById('res-dimensions').innerText = imgElem.naturalWidth + " × " + imgElem.naturalHeight + " px";
+          };
+
+          // Show preview
           document.getElementById('preview-box').classList.remove('hidden');
-        }
+
+          // Real File Details
+          document.getElementById('res-filename').innerText = file.name;
+          const kb = (file.size / 1024).toFixed(1);
+          document.getElementById('res-filesize').innerText = file.size > 1048576 
+            ? (file.size / 1048576).toFixed(2) + " MB" 
+            : kb + " KB";
+
+          // Extract Camera EXIF Data
+          EXIF.getData(file, function() {
+            const make = EXIF.getTag(this, "Make");
+            const model = EXIF.getTag(this, "Model");
+            if (make || model) {
+              document.getElementById('res-device').innerText = ((make || '') + ' ' + (model || '')).trim();
+              document.getElementById('res-status').innerText = "Original EXIF Found";
+              document.getElementById('res-status').className = "text-emerald-400 font-bold";
+            } else {
+              document.getElementById('res-device').innerText = "Web / Social (Metadata Stripped)";
+              document.getElementById('res-status').innerText = "Compressed Image";
+              document.getElementById('res-status').className = "text-amber-400 font-bold";
+            }
+          });
+        };
         reader.readAsDataURL(file);
       }
+    }
+
+    function downloadReport() {
+      const name = document.getElementById('res-filename').innerText;
+      const size = document.getElementById('res-filesize').innerText;
+      const dim = document.getElementById('res-dimensions').innerText;
+      const dev = document.getElementById('res-device').innerText;
+      alert(`[NEXUS FORENSIC DOSSIER]\n\nFile: ${name}\nSize: ${size}\nDimensions: ${dim}\nDevice: ${dev}\n\nReport generated successfully!`);
     }
   </script>
 </body>
